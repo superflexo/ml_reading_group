@@ -1,0 +1,125 @@
+Excercise 10, chapter 8
+
+10. We now use boosting to predict Salary in the Hitters data set.
+a) Remove the observations for whom the salary information is
+unknown, and then log-transform the salaries.
+
+  library(ISLR)
+  sum(is.na(Hitters$Salary))
+
+-> [1] 59 
+
+  Hitters = Hitters[-which(is.na(Hitters$Salary)), ]
+  sum(is.na(Hitters$Salary))
+
+-> [1] 0
+
+  Hitters$Salary = log(Hitters$Salary)
+
+b) Create a training set consisting of the first 200 observations, and
+a test set consisting of the remaining observations.
+
+  train = 1:200
+  Hitters.train = Hitters[train, ]
+  Hitters.test = Hitters[-train, ]
+
+c) Perform boosting on the training set with 1,000 trees for a range
+of values of the shrinkage parameter \u03bb. Produce a plot with
+different shrinkage values on the x-axis and the corresponding
+training set MSE on the y-axis.
+
+  library(gbm)
+
+  set.seed(100)
+  exponent = seq(-15, -0.1, by = 0.1)
+  lambdas = 10^exponent
+  length.lambdas = length(lambdas)
+  train.errors = rep(NA, length.lambdas)
+  test.errors = rep(NA, length.lambdas)
+  for (i in 1:length.lambdas) {
+    boost.hitters = gbm(Salary ~ ., data = Hitters.train, distribution = "gaussian", 
+        n.trees = 1000, shrinkage = lambdas[i])
+    train.pred = predict(boost.hitters, Hitters.train, n.trees = 1000)
+    test.pred = predict(boost.hitters, Hitters.test, n.trees = 1000)
+    train.errors[i] = mean((Hitters.train$Salary - train.pred)^2)
+    test.errors[i] = mean((Hitters.test$Salary - test.pred)^2)
+  }
+
+  plot(lambdas, train.errors, type = "b", xlab = "Shrinkage", ylab = "Train MSE", 
+    col = "blue", pch = 20)
+
+d) Produce a plot with different shrinkage values on the x-axis and
+the corresponding test set MSE on the y-axis. 
+
+  plot(lambdas, test.errors, type = "b", xlab = "Shrinkage", ylab = "Test MSE", 
+    col = "red", pch = 20)
+    
+  min(test.errors)
+
+-> [1] 0.255579
+
+  lambdas[which.min(test.errors)]
+
+-> [1] 0.07943282
+
+e) Compare the test MSE of boosting to the test MSE that results
+from applying two of the regression approaches seen in
+Chapters 3 and 6.
+
+  lm.fit = lm(Salary ~ ., data = Hitters.train)
+  lm.pred = predict(lm.fit, Hitters.test)
+  mean((Hitters.test$Salary - lm.pred)^2)
+
+-> [1] 0.4917959
+
+  library(glmnet)
+
+  set.seed(200)
+  x = model.matrix(Salary ~ ., data = Hitters.train)
+  y = Hitters.train$Salary
+  x.test = model.matrix(Salary ~ ., data = Hitters.test)
+  lasso.fit = glmnet(x, y, alpha = 1)
+  lasso.pred = predict(lasso.fit, s = 0.01, newx = x.test)
+  mean((Hitters.test$Salary - lasso.pred)^2)
+
+-> [1] 0.4700537
+
+f) Which variables appear to be the most important predictors in
+the boosted model?
+
+  boost.best = gbm(Salary ~ ., data = Hitters.train, distribution = "gaussian", 
+    n.trees = 1000, shrinkage = lambdas[which.min(test.errors)])
+  summary(boost.best)
+
+->                var    rel.inf
+-> CAtBat       CAtBat 19.6456497
+-> CHits         CHits  9.8181794
+-> CRBI           CRBI  9.3299577
+-> PutOuts     PutOuts  8.3949435
+-> Walks         Walks  7.4498897
+-> CWalks       CWalks  6.7447101
+-> CHmRun       CHmRun  6.2568840
+-> Years         Years  6.0259832
+-> RBI             RBI  5.1830826
+-> Assists     Assists  4.1765415
+-> AtBat         AtBat  3.7065887
+-> Hits           Hits  3.5371512
+-> HmRun         HmRun  2.3880173
+-> Runs           Runs  2.0279261
+-> Errors       Errors  2.0252766
+-> CRuns         CRuns  1.7858897
+-> Division   Division  0.7174808
+-> NewLeague NewLeague  0.4653427
+-> League       League  0.3205055
+
+g) Now apply bagging to the training set. What is the test set MSE
+for this approach?
+
+  library(randomForest)
+
+  set.seed(300)
+  rf.hitters = randomForest(Salary ~ ., data = Hitters.train, ntree = 500, mtry = 19)
+  rf.pred = predict(rf.hitters, Hitters.test)
+  mean((Hitters.test$Salary - rf.pred)^2)
+
+-> [1] 0.2294708
